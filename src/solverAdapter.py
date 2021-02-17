@@ -4,8 +4,8 @@ from src.pomdp import *
 
 
 
-def solve(path):
-    subprocess.run(['java', '-cp', '../lib/SolvePOMDP.jar;../lib/*', 'program.SolvePOMDP', '4x4MDP.POMDP' ], shell=True)
+def solve(path = '4x4MDP.POMDP'):
+    subprocess.run(['java', '-cp', '../lib/SolvePOMDP.jar;../lib/*', 'program.SolvePOMDP', path ], shell=True)
 
 #-cp SolvePOMDP.jar;../lib/*'
 
@@ -205,5 +205,5 @@ def write_transitions(path, pr_succ):
     file.close()
 
 #write_transitions("../domains/4x4MDP.POMDP", 0.8)
-#solve('4x4MDP.POMDP')
+#solve('4x4_test.POMDP')
 #print("done")

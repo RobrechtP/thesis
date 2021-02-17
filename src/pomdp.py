@@ -448,8 +448,13 @@ class POMDPEnvironment:
         # normalize
         b_new = []
         total = sum(b_new_nonnormalized)
+        if total == 0: #todo: in dit geval is iets "ongmogelijks" gebeurd. fix: belief gelijkstellen aan observation func
+            for state in range(len(b_new_nonnormalized)):
+                b_new_nonnormalized[state] = self.Z[(None, state, observation_num)]
+            total = sum(b_new_nonnormalized)
+
         for b_s in b_new_nonnormalized:
-            b_new.append(b_s/total) #todo: er stonden [] rond b_s/total
+            b_new.append(b_s/total) #er stonden [] rond b_s/total, weet niet waarom
         return np.array(b_new)
 
     def print_summary(self):
@@ -464,6 +469,23 @@ class POMDPEnvironment:
         print ("Z:", self.Z)
         print ("")
         print ("R:", self.R)
+
+    def set_transition(self, t): #added to set the transition function as given by t:nparray(a,s,s'), assumed to have correct dims
+        for action in range(len(t)):
+            for start_state in range(len(t[action])):
+                for next_state in range(len(t[action][start_state])):
+                    self.T[(action, start_state, next_state)] = t[action][start_state][next_state]
+
+    def get_transition(self):
+        nactions = len(self.actions)
+        nstates = len(self.states)
+        t = np.zeros((nactions, nstates, nstates))
+        for a in range(nactions):
+            for s1 in range(nstates):
+                for s2 in range(nstates):
+                    t[a][s1][s2] = self.T[(a,s1,s2)]
+        return t
+
 
 
 class POMDPPolicy:
