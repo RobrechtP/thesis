@@ -25,6 +25,9 @@ class Controller:
         self.exp = exploration
         self.nactions = len(pomdp.pomdpenv.actions) #todo: logger meegeven die gecalled wordt bij elke method call
         self.logger = logger
+        logger.log_exploration(exploration)
+
+
 
     def step(self):
         belief = self.pomdp.belief
@@ -59,9 +62,13 @@ class Controller:
                     t[i][j] = np.ones(len(t[i][j]))
                 t[i][j] = t[i][j]/t[i][j].sum()
 
-        self.logger.log_t(self.sim.get_transition(), t)
         #set transition function in pomdp env
         self.pomdp.pomdpenv.set_transition(t)
+        #self.logger.log_t(self.sim.get_transition(), t)
+
+
+    def log(self):
+        self.logger.log_all(self.sim, self.pomdp)
 
     def log_t_complete(self):
         self.logger.log_t_complete(self.sim.get_transition(), self.pomdp.pomdpenv.get_transition())
@@ -80,8 +87,15 @@ class Controller:
 
 
     def update_policy(self, mdp_path, pol_path):
+        write_t(mdp_path, self.pomdp.pomdpenv.get_transition())
         solve(mdp_path)
         self.pomdp.pomdppolicy = POMDPPolicy(pol_path)
+
+
+
+    def set_exploration(self, exp):
+        self.exp = exp
+        self.logger.log_exploration(exp)
 
 
 
@@ -104,16 +118,16 @@ class Temporal_controller(Controller):
         sum = 0
         for i in range(len(t1)):
             for j in range(len(t1[i])):
-                bc = 1 - np.sqrt( np.power((np.sqrt(t1[i][j]) - np.sqrt(t2[i][j])), 2).sum())/np.sqrt(2) #1 - helling distance for each action-state pair
-                sum = sum + sums[i][j]*bc
-        print(sum)
+                hell = 1 - np.sqrt( np.power((np.sqrt(t1[i][j]) - np.sqrt(t2[i][j])), 2).sum())/np.sqrt(2) #1 - helling distance for each action-state pair
+                sum = sum + sums[i][j]*hell
+        #print(sum)
         return sum
 
     def t_sim(self, t1, t2, sums):
         sum = 0
         for i in range(len(t1)):
             for j in range(len(t1[i])):
-                bc = np.power(np.sqrt(t1[i][j] * t2[i][j]).sum(), 8) #Bhattacharyya coeff for each action-state pair
+                bc = np.sqrt(t1[i][j] * t2[i][j]).sum() #Bhattacharyya coeff for each action-state pair
                 sum = sum + sums[i][j]*bc
         # print(sum)
         return sum
@@ -164,13 +178,14 @@ class Temporal_controller(Controller):
         self.hist = []
 
 
-        self.logger.log_t(self.sim.get_transition(), t)
-        #set transition function in pomdp env
+        #self.logger.log_t(self.sim.get_transition(), t)
+
+        #set transition function in pomdp env and logg
         self.pomdp.pomdpenv.set_transition(t)
 
 
 
-    def update_alt(self, x):
+    def update_alt(self, weight, save):
         '''
         calc most likely transition function t given history
         t = nparray met elke entry: (a, s, s')
@@ -197,26 +212,29 @@ class Temporal_controller(Controller):
                 t_recent[i][j] = t_recent[i][j]/t_recent[i][j].sum()
 
 
-        t = t_recent_counts.copy()*sums.sum()
+        t = t_recent_counts.copy()
 
-        #alternative impl: first get al sims and only use x most similar
+        #alternative impl: first get al sims and reorder on similarity to weight them
         w = 1
         sims = []
         for cluster in reversed(self.hist_c):
-            sims.append(w * self.t_sim(t_recent,cluster[1],sums))
+            sims.append(w * self.t_sim_hellinger(t_recent,cluster[1],sums))
             w = w * self.weight
 
         #flip sims since we looped in reverse
         sims = np.flip(np.array(sims))
-        #get x highest indices
-        amount = int(np.ceil(x * len(sims)))
-        inds = np.argpartition(sims, -amount)[-amount:]
-       # print("at step: " + str(len(sims)))
-        print(inds)
-        for ind in inds:
-            t = t + sims[ind] * self.hist_c[ind][0]
-
-
+        #get sort indices
+        inds = np.argsort(sims)
+        # print("at step: " + str(len(sims)))
+        # print(inds)
+        w = 1
+        for ind in reversed(inds):
+            t = t + w * self.hist_c[ind][0]
+            w = w*weight
+     #BASELINE CODE:
+     #   for cluster in reversed(self.hist_c):
+     #       t = t + w * cluster[0]
+     #       w = w*weight
 
         #normalize
         for i in range(len(t)):
@@ -225,10 +243,12 @@ class Temporal_controller(Controller):
                     t[i][j] = np.ones(len(t[i][j]))
                 t[i][j] = t[i][j]/t[i][j].sum()
 
-        self.hist_c.append((t_recent_counts, t)) #of t als laatste param?
+        if save:
+            self.hist_c.append((t_recent_counts, t)) #of t als laatste param?
         self.hist = []
 
 
-        self.logger.log_t(self.sim.get_transition(), t)
-        #set transition function in pomdp env
+       # self.logger.log_t(self.sim.get_transition(), t)
+
+        #set transition function in pomdp env and logg
         self.pomdp.pomdpenv.set_transition(t)

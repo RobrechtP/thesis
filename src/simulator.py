@@ -368,9 +368,9 @@ class Simulation:
         obs = np.random.choice(len(self.observations),1,p=obs_probs)[0]
 
         if (action_num,start_state,self.state,obs) in self.R:
-            self.reward += pow(self.discount,self.step_am) * self.R[action_num,start_state,self.state,obs]
+            self.reward = self.reward * self.discount + self.R[action_num,start_state,self.state,obs]
         else:
-            self.reward += pow(self.discount,self.step_am) * self.R[None,start_state,self.state,obs]
+            self.reward = self.reward * self.discount + self.R[None,start_state,self.state,obs]
         self.step_am += 1
         return obs
 

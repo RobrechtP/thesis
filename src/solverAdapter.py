@@ -204,6 +204,34 @@ def write_transitions(path, pr_succ):
     file.writelines(lines)
     file.close()
 
+
+def write_t(path, t):
+    #write given transition t (matrix [a][s1][s2]) to path
+    #only works for domains with actions "n s e w"
+
+    path = "../domains/" + path
+
+    file = open(path, "r")
+    lines = file.readlines()
+
+    start = lines.index('T: n\n')
+    for i in range(0, len(t[0])):
+        lines[start + i + 1] = str(list(t[0][i]))[1:-1].replace(',','') + '\n'
+    start = lines.index('T: s\n')
+    for i in range(0, len(t[1])):
+        lines[start + i + 1] = str(list(t[1][i]))[1:-1].replace(',','') + '\n'
+    start = lines.index('T: e\n')
+    for i in range(0, len(t[2])):
+        lines[start + i + 1] = str(list(t[2][i]))[1:-1].replace(',','') + '\n'
+    start = lines.index('T: w\n')
+    for i in range(0, len(t[3])):
+        lines[start + i + 1] = str(list(t[3][i]))[1:-1].replace(',','') + '\n'
+
+
+
+    file = open(path, "w")
+    file.writelines(lines)
+    file.close()
 #write_transitions("../domains/4x4MDP.POMDP", 0.8)
 #solve('4x4_test.POMDP')
 #print("done")

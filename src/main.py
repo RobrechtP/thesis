@@ -4,15 +4,19 @@ import numpy as np
 from src.simulator import *
 from src.controller import *
 from src.logger import *
+from src.slipGenerator import *
+import time
 
 
 def main():
+    time1 = time.time()
     mdp_path = '4x4MDP.POMDP'
-    pol_path = "../output/4x4MDP.alpha"
+    mdp_est_path = '4x4MDP_est.POMDP'
+    pol_path = "../output/4x4MDP_est.alpha"
 
     env_path = "../domains/" + mdp_path
 
-    slip = 0.6
+    slip = 0.95
     write_transitions(env_path, slip)
     #solve(mdp_path)
 
@@ -23,37 +27,56 @@ def main():
     pomdp.pomdpenv.print_summary()
 
     sim = Simulation(env_path)
+    rain_gen = RainGenerator()
+    rain_gen.load_data("../transitions/rain1.txt")
 
-    logger = Logger("../tests/explore/peak10k_alt01_trunc40k.xlsx", "main") #hellinger is on
+    logger = Logger("../tests/adaptive400/rain1_09995_lin150k.xlsx", "main") #hswitch is on
 
-    #cont = Controller(pomdp, sim, 0.9995, 1, logger)
-    cont = Temporal_controller(pomdp, sim, 1, 1, logger)
+    cont = Controller(pomdp, sim, 0.9995, 1, logger)
+    #cont = Temporal_controller(pomdp, sim, 1, 1, logger)
 
     cont.set_sim_slip(slip)
-    cont.print_summary()
+    #cont.print_summary()
 
-    for i in range(60000):
+
+    for i in range(300000):
         cont.step()
-        if i%200 == 0:
-            #cont.update()
-            cont.update_alt(0.1)
-#            cont.update_policy(mdp_path, pol_path)
-        if i == 40000:
-            cont.exp = 0
-          #  cont.weight = 1
-        slip = peak_gen(cont, i, 10000, slip)
+        if i%400 == 0:
+            cont.update()
+            exp = exp_lin(i,200000)
+            save = True
+            if exp == 0:
+                save = False
+
+            #cont.update_alt(0.97, save)
+            cont.update_policy(mdp_est_path, pol_path)
+            cont.log()
+            cont.set_exploration(exp)
+        #slip = peak_gen(cont, i, 10000, slip)
+        rain_gen.step(cont, i)
         #switch_gen(cont, i, 2000)
 
+        #slip = peak_gen(cont, i, 15000, slip)
+
+
+        #slip = switch_ran_gen(cont, 1/2000, slip)
+
+        #if i==100000:
+       #     cont.set_exploration(0)
+        #    cont.set_sim_slip(0.75)
 
 
      #   if i%2000 == 0:
      #       cont.log_t_complete()
 #
     #cont.print_summary()
+    time2 = time.time()
+    print("runtime: " + str(time2-time1))
 
 
-    for i in range(0):
-        step(pomdp, sim)
+
+def exp_lin(i, interval):
+    return max(1 - i/interval, 0)
 
 def peak_gen(cont, i, interval, slip):
     if i%(interval/100) == 0:
@@ -68,9 +91,19 @@ def peak_gen(cont, i, interval, slip):
 
 def switch_gen(cont, i, interval):
     if i%(interval*2) == 0:
-        cont.set_sim_slip(0.8)
+        cont.set_sim_slip(0.95)
     if i%(interval*2) == interval:
         cont.set_sim_slip(0.6)
+
+def switch_ran_gen(cont, p, slip):
+    if np.random.random() < p:
+        if slip == 0.6:
+            slip = 0.8
+        else:
+            slip = 0.6
+        cont.set_sim_slip(slip)
+    return slip
+
 
 def step(pomdp, sim):
     print("start step")
