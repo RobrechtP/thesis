@@ -232,6 +232,14 @@ def write_t(path, t):
     file = open(path, "w")
     file.writelines(lines)
     file.close()
-#write_transitions("../domains/4x4MDP.POMDP", 0.8)
-#solve('4x4_test.POMDP')
-#print("done")
+
+def solvertest():
+
+    dom = "4x4_test"
+    write_transitions("../domains/" + dom + ".POMDP", 0.75)
+    solve(dom + '.POMDP')
+    pol = POMDPPolicy("../output/" + dom + ".alpha")
+    belief = np.zeros(14)
+    belief[10] = 1
+    print("BEST ACTION TEST:")
+    print(pol.get_best_action(belief))

@@ -10,15 +10,15 @@ import time
 
 def main():
     time1 = time.time()
-    mdp_path = '4x4MDP.POMDP'
-    mdp_est_path = '4x4MDP_est.POMDP'
-    pol_path = "../output/4x4MDP_est.alpha"
+    mdp_path = '4x4_test.POMDP'
+    mdp_est_path = '4x4_test_est.POMDP'
+    pol_path = "../output/4x4_test_est.alpha"
 
     env_path = "../domains/" + mdp_path
 
     slip = 0.95
     write_transitions(env_path, slip)
-    #solve(mdp_path)
+    solve(mdp_est_path)
 
     belief = np.zeros(14) #todo: add to pomdp file parser
     belief[10] = 1
@@ -28,9 +28,9 @@ def main():
 
     sim = Simulation(env_path)
     rain_gen = RainGenerator()
-    rain_gen.load_data("../transitions/rain1.txt")
+    rain_gen.load_data("../transitions/rain2.txt")
 
-    logger = Logger("../tests/adaptive400/rain1_09995_lin150k.xlsx", "main") #hswitch is on
+    logger = Logger("../tests/pomdp_adaptive/rain2_09995_lin150k_pomdp.xlsx", "main") #hswitch is on
 
     cont = Controller(pomdp, sim, 0.9995, 1, logger)
     #cont = Temporal_controller(pomdp, sim, 1, 1, logger)
@@ -42,12 +42,13 @@ def main():
     for i in range(300000):
         cont.step()
         if i%400 == 0:
-            cont.update()
-            exp = exp_lin(i,200000)
+
+            exp = exp_lin(i,150000)
             save = True
             if exp == 0:
                 save = False
 
+            cont.update()
             #cont.update_alt(0.97, save)
             cont.update_policy(mdp_est_path, pol_path)
             cont.log()

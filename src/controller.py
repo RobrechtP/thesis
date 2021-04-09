@@ -12,7 +12,7 @@ class Controller:
         pomdp: POMDP instance (containing current transition function estimate T)
         sim: simulation
         weight: constant used for weighting recent action-observations
-        hist: history: list of (belief_state b, action_num a, observation_num z)
+        hist: history: list of (belief_state b, action_num a, observation_num z) todo: z wordt nooit gebruikt!
         exp: amount of exploration (1 = always random action, 0 = always best action)
         nactions: aantal actions
     """
@@ -185,6 +185,7 @@ class Temporal_controller(Controller):
 
 
 
+    #TODO: volgens mij kan er overal met genormaliseerde versie gewerkt worden!
     def update_alt(self, weight, save):
         '''
         calc most likely transition function t given history
