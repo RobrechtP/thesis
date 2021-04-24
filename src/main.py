@@ -10,30 +10,36 @@ import time
 
 def main():
     time1 = time.time()
-    mdp_path = '4x4_test.POMDP'
-    mdp_est_path = '4x4_test_est.POMDP'
-    pol_path = "../output/4x4_test_est.alpha"
 
+    EXTENSION = True
+
+    mdp_path = '6x6MDP.POMDP'
+    mdp_est_path = '6x6MDP_est.POMDP'
+    pol_path = "../output/6x6MDP_est.alpha"
     env_path = "../domains/" + mdp_path
 
     slip = 0.95
-    write_transitions(env_path, slip)
+    write_transitions(env_path, slip, extension=EXTENSION)
     solve(mdp_est_path)
 
-    belief = np.zeros(14) #todo: add to pomdp file parser
-    belief[10] = 1
-    #belief = np.array([0.111111, 0.111111, 0.111111, 0.0, 0.111111, 0.111111, 0.0, 0.111112, 0.111111, 0.111111, 0.111111])
+    if EXTENSION:
+        belief = np.zeros(27)
+        belief[14] = 1
+    else:
+        belief = np.zeros(14) #todo: add to pomdp file parser
+        belief[10] = 1
+
     pomdp = POMDP(env_path, pol_path, belief)
     pomdp.pomdpenv.print_summary()
 
     sim = Simulation(env_path)
     rain_gen = RainGenerator()
-    rain_gen.load_data("../transitions/rain2.txt")
+    rain_gen.load_data("../transitions/rain1.txt")
 
-    logger = Logger("../tests/pomdp_adaptive/rain2_09995_lin150k_pomdp.xlsx", "main") #hswitch is on
+    logger = Logger("../tests/6x6_adaptive/rain1_09995_lin150k.xlsx", "main") #hswitch is on
 
-    cont = Controller(pomdp, sim, 0.9995, 1, logger)
-    #cont = Temporal_controller(pomdp, sim, 1, 1, logger)
+    cont = Controller(pomdp, sim, 0.9995, 1, logger, EXTENSION)
+    #cont = Temporal_controller(pomdp, sim, 1, 1, logger, EXTENSION)
 
     cont.set_sim_slip(slip)
     #cont.print_summary()
@@ -50,6 +56,7 @@ def main():
 
             cont.update()
             #cont.update_alt(0.97, save)
+
             cont.update_policy(mdp_est_path, pol_path)
             cont.log()
             cont.set_exploration(exp)
@@ -117,7 +124,6 @@ def step(pomdp, sim):
     print ('\t- belief:         ', np.round(pomdp.belief.flatten(), 3))
     print ('\t- state:          ', sim.state)
     print ('\t- reward:         ', sim.reward)
-
 
 
 

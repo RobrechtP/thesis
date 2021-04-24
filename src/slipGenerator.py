@@ -3,6 +3,21 @@ from src.simulator import *
 from src.controller import *
 from src.pomdp import *
 
+class PlotController():
+    def __init__(self):
+        self.step = 0
+        self.slip = 0
+        self.data = []
+
+    def set_sim_slip(self, slip):
+        self.slip = slip
+
+
+    def take_step(self):
+        if self.step%400 == 0:
+            self.data.append(self.slip)
+        self.step += 1
+
 
 class RainGenerator:
 
@@ -70,8 +85,56 @@ class RainGenerator:
         self.set_data(data)
         return data
 
+    def get_datapoints(self):
+        x = [0]
+        y = [self.dry_slip]
+
+        data = self.data.copy()
+        start_next_show =data.pop(0)
+        end_next_show = data.pop(0)
+        end_curr_dry = data.pop(0)
+
+        x.append(start_next_show)
+        y.append(self.dry_slip)
+        x.append(start_next_show+1)
+        y.append(self.wet_slip)
+        x.append(end_next_show)
+        y.append(self.wet_slip)
 
 
+        while len(data) > 2:
+            start_next_show =data.pop(0)
+            end_next_show = data.pop(0)
+            end_next_dry = data.pop(0)
+
+            if end_curr_dry < start_next_show:
+                x.append(end_curr_dry)
+                y.append(self.dry_slip)
+                x.append(start_next_show)
+                y.append(self.dry_slip)
+            else:
+                end_curr_show = x[-1]
+                slip = self.wet_slip + (self.dry_slip - self.wet_slip) * (start_next_show - end_curr_show)/(end_curr_dry - end_curr_show)
+                x.append(start_next_show)
+                y.append(slip)
+
+
+            x.append(start_next_show+1)
+            y.append(self.wet_slip)
+            x.append(end_next_show)
+            y.append(self.wet_slip)
+
+            end_curr_dry = end_next_dry
+
+        return (x,y)
+
+    def get_datapoints_clustered(self, length):
+        plot_cont = PlotController()
+        for i in range(length):
+            self.step(plot_cont,i)
+            plot_cont.take_step()
+        data = plot_cont.data
+        return data
 
 
 

@@ -41,8 +41,14 @@ class Logger:
         real_t = sim.get_transition()
         estimate_t = pomdp.pomdpenv.get_transition()
         reward = sim.reward
-        belief = np.zeros(14)
-        belief[10] = 1
+
+        #indicates extensded domain (6x6) is being used
+        if len(real_t[0] == 27):
+            belief = np.zeros(27)
+            belief[14] = 1
+        else:
+            belief = np.zeros(14)
+            belief[10] = 1
         action, _er = pomdp.pomdppolicy.get_best_action(belief)
 
         sum_abs = 0

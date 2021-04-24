@@ -17,7 +17,8 @@ class Controller:
         nactions: aantal actions
     """
 
-    def __init__(self, pomdp, sim, weight, exploration, logger):
+    #set extension to true in case extended 6x6 domain is used, then pr_dry also is used
+    def __init__(self, pomdp, sim, weight, exploration, logger, extension=False, pr_dry = 0.95):
         self.pomdp = pomdp
         self.sim = sim
         self.weight = weight
@@ -25,6 +26,8 @@ class Controller:
         self.exp = exploration
         self.nactions = len(pomdp.pomdpenv.actions) #todo: logger meegeven die gecalled wordt bij elke method call
         self.logger = logger
+        self.extension = extension
+        self.pr_dry = pr_dry
         logger.log_exploration(exploration)
 
 
@@ -75,7 +78,10 @@ class Controller:
 
     def set_sim_slip(self, pr_succ):
         #set the transition succes probabilties of the simulation to pr_succ
-        (Tn, Ts, Te, Tw) = get_transitions(pr_succ)
+        if self.extension:
+            (Tn, Ts, Te, Tw) = get_transitions_extension(pr_succ, self.pr_dry)
+        else:
+            (Tn, Ts, Te, Tw) = get_transitions(pr_succ)
         nstates = len(self.pomdp.pomdpenv.states)
         t = np.zeros((self.nactions, nstates, nstates))
         t[0] = np.array(Tn)
@@ -108,8 +114,8 @@ class Controller:
 
 
 class Temporal_controller(Controller):
-    def __init__(self, pomdp, sim, weight, exploration, logger):
-        super().__init__( pomdp, sim, weight, exploration, logger)
+    def __init__(self, pomdp, sim, weight, exploration, logger, extension=False, pr_dry = 0.9):
+        super().__init__( pomdp, sim, weight, exploration, logger, extension, pr_dry)
         self.hist_c = [] #clustered history: list of (t_recent_counts, t)
 
 
