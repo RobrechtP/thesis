@@ -259,3 +259,14 @@ class Temporal_controller(Controller):
 
         #set transition function in pomdp env and logg
         self.pomdp.pomdpenv.set_transition(t)
+
+    def save_history(self, filename):
+        hist = []
+        t = []
+        for cluster in self.hist_c:
+            hist.append(cluster[0])
+            t.append(cluster[1])
+        data = [hist, t]
+        np.save(filename, data)
+
+

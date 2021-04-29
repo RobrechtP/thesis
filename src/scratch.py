@@ -11,10 +11,14 @@ from src.logger import *
 from src.slipGenerator import *
 import time
 
-path = "../transitions/rain2.txt"
-gen = RainGenerator()
-data = gen.generate_data()
-print(data)
-gen.save_data(data, path)
-data = gen.load_data(path)
-print(data)
+
+
+test = [([[1],[1]]), ([1,2,3])]
+test = np.random.random((50,50,750))
+
+
+np.save("testdata.npy", test)
+test2 = np.load("testdata.npy", allow_pickle=True)
+
+print(test2[0][0][0])
+print(test2.size)

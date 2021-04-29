@@ -7,6 +7,7 @@ matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from src.slipGenerator import *
+from src.solverAdapter import *
 
 test_policy = POMDPPolicy("../output/6x6MDP_est.alpha")
 test_policy2 = POMDPPolicy("../output/6x6MDP.alpha")
@@ -16,8 +17,91 @@ transition_data = slip_gen.get_datapoints_clustered(300000)
 transition_data = [1-x for x in transition_data]
 
 
-test_data = np.random.random(750)
-test_data[500::] = np.zeros(250)
+
+
+
+
+def t_sim_hellinger( t1, t2, sums):
+
+    sum = 0
+    for i in range(len(t1)):
+        for j in range(len(t1[i])):
+            hell = 1 - np.sqrt( np.power((np.sqrt(t1[i][j]) - np.sqrt(t2[i][j])), 2).sum())/np.sqrt(2) #1 - helling distance for each action-state pair
+            sum = sum + sums[i][j]*hell
+    #print(sum)
+    return sum
+
+def calculate_sim(history, weight):
+    '''
+    calc most likely transition function t given history
+    t = nparray met elke entry: (a, s, s')
+    '''
+    nstates = 27
+    t_recent_counts = history[0][-1]
+
+
+    sums = np.zeros((4, nstates)) #indicate for each state-action pair how many times the actions was recently taken in the states
+    #normalize
+    t_recent = t_recent_counts.copy()
+    for i in range(len(t_recent)):
+        for j in range(len(t_recent[i])):
+            sum = t_recent[i][j].sum()
+            sums[i][j] = sum
+            if sum == 0: #if unseen set all to one to normalize to random
+                t_recent[i][j] = np.ones(len(t_recent[i][j]))
+            t_recent[i][j] = t_recent[i][j]/t_recent[i][j].sum()
+
+
+    t = t_recent_counts.copy()
+
+    #alternative impl: first get al sims and reorder on similarity to weight them
+    w = 1
+    sims = []
+    for cluster in history[1][:-1]:
+        sims.append(w * t_sim_hellinger(t_recent,cluster,sums))
+
+
+    #flip sims since we looped in reverse
+    sims = np.flip(np.array(sims))
+    #get sort indices
+    inds = np.argsort(sims)
+    # print("at step: " + str(len(sims)))
+    # print(inds)
+    weights = np.zeros(len(history[0])-1)
+    w = 1
+    for ind in reversed(inds):
+        weights[ind]=w
+        t = t + w * history[0][ind]
+        w = w*weight
+
+    weights = np.flip(weights)
+
+    #BASELINE CODE:
+    #   for cluster in reversed(self.hist_c):
+    #       t = t + w * cluster[0]
+    #       w = w*weight
+
+    #normalize
+    for i in range(len(t)):
+        for j in range(len(t[i])):
+            if t[i][j].sum() == 0: #if unseen set all to one to normalize to random
+                t[i][j] = np.ones(len(t[i][j]))
+            t[i][j] = t[i][j]/t[i][j].sum()
+
+    print(len(weights))
+
+    return weights, t
+
+
+
+
+
+
+demo_data = np.load("data_rain1.npy")
+hist_test = [demo_data[0][:374] + demo_data[0][500], demo_data[1][:374] + demo_data[1][500]]
+w, t = calculate_sim(hist_test, 0.97)
+
+test_data = w
 
 
 
@@ -29,6 +113,7 @@ class BarFrame(tk.Frame):
         self.data=data
         fig = Figure(figsize=self.size, dpi=100)
         ax = fig.add_axes([0.05,0.1,0.95,0.9])
+        ax.set_ylim(0,1.05)
         ax.plot(data, color = 'r')
 
         self.canvas = FigureCanvasTkAgg(fig, self)
@@ -46,6 +131,7 @@ class BarFrame(tk.Frame):
         fig = Figure(figsize=self.size, dpi=100)
 
         ax = fig.add_axes([0.05,0.1,0.95,0.9])
+        ax.set_ylim(0,1.05)
 
 
         ax.bar(list(range(len(data))), data, color = 'b', width = 1)
@@ -117,7 +203,7 @@ class DemoGUI():
         self.minone = ImageTk.PhotoImage(minone)
         self.mintwo = ImageTk.PhotoImage(mintwo)
 
-        self.rain_colors = ["#ffffff", "#e6e6ff", "#ccccff", "#b3b3ff", "#9999ff", "#8080ff" ]
+        self.rain_colors = ["#ffffff", "#e6e6ff", "#ccccff", "#b3b3ff", "#9999ff", "#8080ff", "#6666ff" ]
 
 
         self.master_frames = []
@@ -176,14 +262,18 @@ class DemoGUI():
 
                     label.pack()
 
-        next_button = tk.Button(text="next", master=self.master_frames[3])
-        next_button.bind("<Button-1>", self.next)
+        next_button = tk.Button(text="Enter", master=self.master_frames[3])
+        next_button.bind("<Button-1>", self.set_position)
         button1 = tk.Button(text="uniform", master=self.master_frames[3])
         button1.bind("<Button-1>", self.set_uniform_weights)
         button2 = tk.Button(text="recent", master=self.master_frames[3])
         button2.bind("<Button-1>", self.set_recent_weights)
         button3 = tk.Button(text="similarity", master=self.master_frames[3])
-        button3.bind("<Button-1>", self.next)
+        button3.bind("<Button-1>", self.set_sim_weights)
+
+        self.pos_input = tk.Entry(master=self.master_frames[3])
+
+
 
         self.bar_frame = BarFrame(self.master_frames[2], transition_data)
 
@@ -193,26 +283,23 @@ class DemoGUI():
         dom_frame1.pack(side=tk.LEFT)
         dom_frame2.pack(side=tk.RIGHT)
         self.bar_frame.pack()
+        self.pos_input.pack(side=tk.LEFT)
         next_button.pack(side=tk.LEFT)
         button1.pack(side=tk.LEFT)
         button2.pack(side=tk.LEFT)
         button3.pack(side=tk.LEFT)
 
         self.set_random()
-        self.set_rain_bg(0)
+        self.set_rain_bg(0.05)
 
         self.window.mainloop()
 
-    def next(self, event):
-        print("next called")
-        self.bar_frame.set_data(test_data)
-
-        self.set_policy(test_policy)
-        self.set_policy(test_policy2,1)
-        self.set_rain_bg(4)
+        self.pos = 500
 
 
-    def set_rain_bg(self, intensity):
+
+    def set_rain_bg(self, slip):
+        intensity = int(slip*20 - 1)
         for dom in range(2):
             for i,tile in enumerate(self.tiles[dom]):
                 if i not in self.blank_tiles + self.reward_tiles:
@@ -240,17 +327,47 @@ class DemoGUI():
                 tile.config(image=self.arrows[np.random.randint(4)])
 
     def set_uniform_weights(self, event):
-        data = np.ones(750)
-        data[500::] = np.zeros(250)
-        self.bar_frame.set_data(data)
+
+        w = np.ones(750)
+        w[self.pos::] = np.zeros(750-self.pos)
+        self.bar_frame.set_data(w, self.pos)
 
     def set_recent_weights(self, event):
-        pos = 500
-        data = np.zeros(750)
+        pos = self.pos
+        w = np.zeros(750)
         val = 1
         for i in range(pos):
-            data[-(750-pos)-i] = val
+            w[-(750-pos)-i] = val
             val = val*0.8187
-        self.bar_frame.set_data(data)
+        self.bar_frame.set_data(w, pos)
+
+    def set_sim_weights(self, event):
+        pos = self.pos
+        hist = [np.concatenate((demo_data[0][:375], [demo_data[0][pos]])), np.concatenate((demo_data[1][:375], [demo_data[1][pos]]))]
+        print(len(hist[0]))
+        w, t = calculate_sim(hist, 0.97)
+        self.bar_frame.set_data(w,pos)
+
+
+    def set_position(self, event):
+        pos = int(self.pos_input.get())
+        self.pos = pos
+        self.bar_frame.set_data([], pos)
+        slip = transition_data[pos]
+        self.set_rain_bg(slip)
+        print(slip)
+        self.set_slip(slip)
+
+    def set_slip(self, slip):
+        dom = "6x6MDP"
+        write_transitions("../domains/" + dom + ".POMDP", 1-slip, extension=True)
+        solve(dom + '.POMDP')
+        pol = POMDPPolicy("../output/" + dom + ".alpha")
+        self.set_policy(pol,1)
+
+
+
+
+
 
 gui = DemoGUI()

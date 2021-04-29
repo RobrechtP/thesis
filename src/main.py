@@ -36,10 +36,10 @@ def main():
     rain_gen = RainGenerator()
     rain_gen.load_data("../transitions/rain1.txt")
 
-    logger = Logger("../tests/6x6_adaptive/rain1_09995_lin150k.xlsx", "main") #hswitch is on
+    logger = Logger("../tests/6x6_adaptive/demodata_rain1_t097_lin150k.xlsx", "main") #hswitch is on
 
-    cont = Controller(pomdp, sim, 0.9995, 1, logger, EXTENSION)
-    #cont = Temporal_controller(pomdp, sim, 1, 1, logger, EXTENSION)
+    #cont = Controller(pomdp, sim, 0.9995, 1, logger, EXTENSION)
+    cont = Temporal_controller(pomdp, sim, 1, 1, logger, EXTENSION)
 
     cont.set_sim_slip(slip)
     #cont.print_summary()
@@ -51,11 +51,11 @@ def main():
 
             exp = exp_lin(i,150000)
             save = True
-            if exp == 0:
-                save = False
+           # if exp == 0:
+           #     save = False
 
-            cont.update()
-            #cont.update_alt(0.97, save)
+            #cont.update()
+            cont.update_alt(0.97, save)
 
             cont.update_policy(mdp_est_path, pol_path)
             cont.log()
@@ -78,6 +78,7 @@ def main():
      #       cont.log_t_complete()
 #
     #cont.print_summary()
+    #cont.save_history("data_rain1.npy")
     time2 = time.time()
     print("runtime: " + str(time2-time1))
 
