@@ -8,20 +8,32 @@ from src.slipGenerator import *
 import time
 
 
-def main():
-    time1 = time.time()
+#code to execute an experiment, should show most important functionality
+def experiment():
+    #indicate whether 4x4 domain (false) or 6x6 domain (true) is used
+    EXTENSION = False
 
-    EXTENSION = True
+    #pomdp filename inside domains dir
+    pomdp_file = '4x4MDP.POMDP'
+    env_path = "../domains/" + pomdp_file
 
-    mdp_path = '6x6MDP.POMDP'
-    mdp_est_path = '6x6MDP_est.POMDP'
-    pol_path = "../output/6x6MDP_est.alpha"
-    env_path = "../domains/" + mdp_path
+    #pomdp filename inside domains dir where transition function estimate can be filled in
+    # (ensure same dom specs as pomdp_file)
+    pomdp_est_file = '4x4MDP_est.POMDP'
 
-    slip = 0.95
-    write_transitions(env_path, slip, extension=EXTENSION)
-    solve(mdp_est_path)
+    #path of .alpha file that is generated when solving the pomdp_est_file
+    pol_path = "../output/4x4MDP_est.alpha"
 
+    #P(succes): initial action succes probability in domain ( = 1-P(schuif))
+    p_succ = 0.95
+
+    #write transition function with initial p_succ to the POMDP
+    write_transitions(env_path, p_succ, extension=EXTENSION)
+
+    #solve pomdp estimate just to ensure the .alpha file exists already, this first policy does not influence expriment
+    solve(pomdp_est_file)
+
+    #set initial belief
     if EXTENSION:
         belief = np.zeros(27)
         belief[14] = 1
@@ -29,105 +41,103 @@ def main():
         belief = np.zeros(14) #todo: add to pomdp file parser
         belief[10] = 1
 
+    #create the POMDP object and log info
     pomdp = POMDP(env_path, pol_path, belief)
     pomdp.pomdpenv.print_summary()
 
+    #create simulation object
     sim = Simulation(env_path)
+
+    #create transition function generator
     rain_gen = RainGenerator()
-    rain_gen.load_data("../transitions/rain1.txt")
 
-    logger = Logger("../tests/6x6_adaptive/demodata_rain1_t097_lin150k.xlsx", "main") #hswitch is on
+    #load pre-generated transition function data
+    rain_gen.load_data("../transitions/rain3.txt")
+    #or optionally generate new data instead
+    #rain_gen.generate_data()
 
+    #create logger object , defining path of excel file
+    logger = Logger("../tests/adaptive400/peak10k_t097_lin150k.xlsx")
+
+    #create one of three controllers: uniform weighted, recent weighted or similarity weighted
+    #cont = Controller(pomdp, sim, 1, 1, logger, EXTENSION)
     #cont = Controller(pomdp, sim, 0.9995, 1, logger, EXTENSION)
     cont = Temporal_controller(pomdp, sim, 1, 1, logger, EXTENSION)
 
-    cont.set_sim_slip(slip)
-    #cont.print_summary()
+    #set p_succ of simulation (should be redundant with former code)
+    cont.set_sim_p_succ(p_succ)
 
 
+    #main loop of the experiment
     for i in range(300000):
+        #execute one step in the simulation
         cont.step()
+
         if i%400 == 0:
-
+            #calculate new exploration amount
             exp = exp_lin(i,150000)
-            save = True
-           # if exp == 0:
-           #     save = False
 
+            #if non-temporal controller is used: recalculate transition function estimation
             #cont.update()
+
+            #else if no exploration is present, new data shouldnt be stored
+            save = True
+            if exp == 0:
+                save = False
+            #for temporal controller: recalculate transition function estimation with given weight and save boolean
             cont.update_alt(0.97, save)
 
-            cont.update_policy(mdp_est_path, pol_path)
+            #recalculate policy with new estimation
+            cont.update_policy(pomdp_est_file, pol_path)
+            #log current information
             cont.log()
+            #set new exploration value
             cont.set_exploration(exp)
-        #slip = peak_gen(cont, i, 10000, slip)
+
+        #let the generator update the transition function of the simulation
         rain_gen.step(cont, i)
-        #switch_gen(cont, i, 2000)
 
-        #slip = peak_gen(cont, i, 15000, slip)
+        #or alternatively use a simpler form of transition function variation over time:
+        #p_succ = peak_gen(cont, i, 10000, p_succ)
+        #switch_gen(cont, i, 4100)
+        #p_succ = switch_ran_gen(cont, 1/4000, p_succ)
 
-
-        #slip = switch_ran_gen(cont, 1/2000, slip)
-
-        #if i==100000:
-       #     cont.set_exploration(0)
-        #    cont.set_sim_slip(0.75)
-
-
-     #   if i%2000 == 0:
-     #       cont.log_t_complete()
-#
-    #cont.print_summary()
+    #optionally save history to be used in demo
     #cont.save_history("data_rain1.npy")
-    time2 = time.time()
-    print("runtime: " + str(time2-time1))
 
 
-
+#exploration calc function
 def exp_lin(i, interval):
     return max(1 - i/interval, 0)
 
-def peak_gen(cont, i, interval, slip):
+#some simpler transition function time variatons that could be used
+def peak_gen(cont, i, interval, p_succ):
     if i%(interval/100) == 0:
         if i%(2*interval) < interval:
-            slip = slip + 0.002
+            p_succ = p_succ + 0.002
         else:
-            slip = slip - 0.002
-        cont.set_sim_slip(slip)
-    return slip
-
-
+            p_succ = p_succ - 0.002
+        cont.set_sim_p_succ(p_succ)
+    return p_succ
 
 def switch_gen(cont, i, interval):
     if i%(interval*2) == 0:
-        cont.set_sim_slip(0.95)
+        cont.set_sim_p_succ(0.85)
     if i%(interval*2) == interval:
-        cont.set_sim_slip(0.6)
+        cont.set_sim_p_succ(0.65)
 
-def switch_ran_gen(cont, p, slip):
+def switch_ran_gen(cont, p, p_succ):
     if np.random.random() < p:
-        if slip == 0.6:
-            slip = 0.8
+        if p_succ == 0.75:
+            p_succ = 0.8
         else:
-            slip = 0.6
-        cont.set_sim_slip(slip)
-    return slip
+            p_succ = 0.75
+        cont.set_sim_p_succ(p_succ)
+    return p_succ
 
 
-def step(pomdp, sim):
-    print("start step")
-    best_action_num, expected_reward = pomdp.get_best_action()
-    best_action_str = pomdp.get_action_str(int(best_action_num))
-    print ('\t- action:         ', best_action_str)
-    print ('\t- expected reward:', expected_reward)
-    obs = sim.step(int(best_action_num))
-    pomdp.update_belief(int(best_action_num), obs)
-    print ('\t- belief:         ', np.round(pomdp.belief.flatten(), 3))
-    print ('\t- state:          ', sim.state)
-    print ('\t- reward:         ', sim.reward)
-
-
-
+def main():
+    experiment()
 
 
 if __name__ == "__main__":

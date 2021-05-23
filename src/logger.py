@@ -5,7 +5,7 @@ from src.controller import *
 from src.pomdp import *
 class Logger:
 
-    def __init__(self, filepath, name):
+    def __init__(self, filepath, name="main"):
         self.wb = xlsxwriter.Workbook(filepath)
         self.new_sheet(name)
         self.pr_succ = 1
@@ -42,8 +42,10 @@ class Logger:
         estimate_t = pomdp.pomdpenv.get_transition()
         reward = sim.reward
 
+
         #indicates extensded domain (6x6) is being used
-        if len(real_t[0] == 27):
+
+        if len(real_t[0]) == 27:
             belief = np.zeros(27)
             belief[14] = 1
         else:

@@ -394,13 +394,14 @@ class Simulation:
         print("")
         print("reward:", self.reward)
 
-
-    def set_transition(self, t): #added to set the transition function as given by t:nparray(a,s,s'), assumed to have correct dims
+    #set the transition function as given by t:nparray(a,s,s'), assumed to have correct dims
+    def set_transition(self, t):
         for action in range(len(t)):
             for start_state in range(len(t[action])):
                 for next_state in range(len(t[action][start_state])):
                     self.T[(action, start_state, next_state)] = t[action][start_state][next_state]
 
+    #get the transition function as nparray(a,s,s')
     def get_transition(self):
         nactions = len(self.actions)
         nstates = len(self.states)

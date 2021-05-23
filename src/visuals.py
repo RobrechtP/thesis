@@ -9,6 +9,11 @@ from matplotlib.figure import Figure
 from src.slipGenerator import *
 from src.solverAdapter import *
 
+
+#The demo!
+
+
+
 test_policy = POMDPPolicy("../output/6x6MDP_est.alpha")
 test_policy2 = POMDPPolicy("../output/6x6MDP.alpha")
 slip_gen = RainGenerator()
@@ -31,13 +36,27 @@ def t_sim_hellinger( t1, t2, sums):
     #print(sum)
     return sum
 
+def calculate_t(hist, weights):
+    t = np.zeros((4, 27, 27))
+    for i in range(len(hist)):
+        t  = t + weights[i]*hist[i]
+
+    for i in range(len(t)):
+        for j in range(len(t[i])):
+            if t[i][j].sum() == 0: #if unseen set all to one to normalize to random
+                t[i][j] = np.ones(len(t[i][j]))
+            t[i][j] = t[i][j]/t[i][j].sum()
+    return t
+
+
+
 def calculate_sim(history, weight):
     '''
     calc most likely transition function t given history
     t = nparray met elke entry: (a, s, s')
     '''
     nstates = 27
-    t_recent_counts = history[0][-1]
+    t_recent_counts = history[0][-1].copy()
 
 
     sums = np.zeros((4, nstates)) #indicate for each state-action pair how many times the actions was recently taken in the states
@@ -88,7 +107,6 @@ def calculate_sim(history, weight):
                 t[i][j] = np.ones(len(t[i][j]))
             t[i][j] = t[i][j]/t[i][j].sum()
 
-    print(len(weights))
 
     return weights, t
 
@@ -99,7 +117,7 @@ def calculate_sim(history, weight):
 
 demo_data = np.load("data_rain1.npy")
 hist_test = [demo_data[0][:374] + demo_data[0][500], demo_data[1][:374] + demo_data[1][500]]
-w, t = calculate_sim(hist_test, 0.97)
+w, _t = calculate_sim(hist_test, 0.97)
 
 test_data = w
 
@@ -114,7 +132,9 @@ class BarFrame(tk.Frame):
         fig = Figure(figsize=self.size, dpi=100)
         ax = fig.add_axes([0.05,0.1,0.95,0.9])
         ax.set_ylim(0,1.05)
-        ax.plot(data, color = 'r')
+        ax.plot([0,377],[1,0], color = 'k',label='exploration')
+        ax.plot(data, color = 'r', label='P(slip)')
+        ax.legend()
 
         self.canvas = FigureCanvasTkAgg(fig, self)
         self.canvas.draw()
@@ -133,11 +153,13 @@ class BarFrame(tk.Frame):
         ax = fig.add_axes([0.05,0.1,0.95,0.9])
         ax.set_ylim(0,1.05)
 
-
-        ax.bar(list(range(len(data))), data, color = 'b', width = 1)
+        if len(data) > 0:
+            ax.bar(list(range(len(data))), data, color = 'b', width = 1, label='Weights')
         ax.axvline(x=position, color = 'r')
-        ax.plot()
-        ax.plot(self.data, color ='r')
+        ax.plot([0,377],[1,0], color = 'k', label='Exploration')
+        ax.plot(self.data, color ='r',label='P(slip)')
+        ax.legend()
+
 
         self.canvas = FigureCanvasTkAgg(fig, self)
         self.canvas.draw()
@@ -162,7 +184,7 @@ class DemoGUI():
         self.window.title("Masters thesis demo")
 
         black = Image.new('RGB', (grid_size,grid_size))
-        white = Image.new('RGB', (grid_size,grid_size), (255,255,255))
+        white = Image.new('RGB', (0,0), (255,255,255,0))
         right = Image.open("../images/arrow_right.png")
         right = right.convert('RGBA')
         right = right.resize((arrow_size,arrow_size))
@@ -241,7 +263,7 @@ class DemoGUI():
                         borderwidth=1
                     )
                     frame.grid(row=i, column=j)
-                    label = tk.Label(master=frame, text=f"Row {i}\nColumn {j}",image=self.arrows[0], width = grid_size, height = grid_size, bg="white" )
+                    label = tk.Label(master=frame, text=f"Row {i}\nColumn {j}",image=self.white, width = grid_size, height = grid_size, bg="white" )
 
                     if i == 0 and j == 2:
                         label.config(image = self.plusone)
@@ -264,12 +286,15 @@ class DemoGUI():
 
         next_button = tk.Button(text="Enter", master=self.master_frames[3])
         next_button.bind("<Button-1>", self.set_position)
-        button1 = tk.Button(text="uniform", master=self.master_frames[3])
-        button1.bind("<Button-1>", self.set_uniform_weights)
-        button2 = tk.Button(text="recent", master=self.master_frames[3])
-        button2.bind("<Button-1>", self.set_recent_weights)
-        button3 = tk.Button(text="similarity", master=self.master_frames[3])
-        button3.bind("<Button-1>", self.set_sim_weights)
+        self.button1 = tk.Button(text="uniform", master=self.master_frames[3])
+        self.button1.bind("<Button-1>", self.set_uniform_weights)
+        self.button2 = tk.Button(text="recent", master=self.master_frames[3])
+        self.button2.bind("<Button-1>", self.set_recent_weights)
+        self.button3 = tk.Button(text="similarity", master=self.master_frames[3])
+        self.button3.bind("<Button-1>", self.set_sim_weights)
+
+        self.button_color = self.button1.cget("background")
+        self.toggle_color = 'grey'
 
         self.pos_input = tk.Entry(master=self.master_frames[3])
 
@@ -285,16 +310,16 @@ class DemoGUI():
         self.bar_frame.pack()
         self.pos_input.pack(side=tk.LEFT)
         next_button.pack(side=tk.LEFT)
-        button1.pack(side=tk.LEFT)
-        button2.pack(side=tk.LEFT)
-        button3.pack(side=tk.LEFT)
+        self.button1.pack(side=tk.LEFT)
+        self.button2.pack(side=tk.LEFT)
+        self.button3.pack(side=tk.LEFT)
 
-        self.set_random()
+
         self.set_rain_bg(0.05)
-
+        self.pos = 500
         self.window.mainloop()
 
-        self.pos = 500
+
 
 
 
@@ -305,8 +330,14 @@ class DemoGUI():
                 if i not in self.blank_tiles + self.reward_tiles:
                     tile.config( bg = self.rain_colors[intensity])
 
+    def set_empty(self, dom = 0):
+        nstates = 27
+        for i in range(nstates):
+            if i not in self.reward_tiles:
+                self.tiles[dom][i].config(image = self.white)
+
     def set_policy(self, policy, dom = 0):
-        nstates = len(self.tiles[dom])
+        nstates = 27
         belief = np.zeros(nstates)
         belief[14] = 1
         action, _er = policy.get_best_action(belief)
@@ -327,36 +358,58 @@ class DemoGUI():
                 tile.config(image=self.arrows[np.random.randint(4)])
 
     def set_uniform_weights(self, event):
+        self.button1.config(background=self.toggle_color)
+        self.button2.config(background=self.button_color)
+        self.button3.config(background=self.button_color)
 
         w = np.ones(750)
         w[self.pos::] = np.zeros(750-self.pos)
+
+        t = calculate_t(demo_data[0],w)
         self.bar_frame.set_data(w, self.pos)
+        self.set_transition(t)
 
     def set_recent_weights(self, event):
+        self.button1.config(background=self.button_color)
+        self.button2.config(background=self.toggle_color)
+        self.button3.config(background=self.button_color)
         pos = self.pos
         w = np.zeros(750)
         val = 1
         for i in range(pos):
             w[-(750-pos)-i] = val
             val = val*0.8187
+
+        t = calculate_t(demo_data[0],w)
         self.bar_frame.set_data(w, pos)
+        self.set_transition(t)
 
     def set_sim_weights(self, event):
+        self.button1.config(background=self.button_color)
+        self.button2.config(background=self.button_color)
+        self.button3.config(background=self.toggle_color)
+
         pos = self.pos
-        hist = [np.concatenate((demo_data[0][:375], [demo_data[0][pos]])), np.concatenate((demo_data[1][:375], [demo_data[1][pos]]))]
+        print(pos)
+        hist = [np.concatenate((demo_data[0][:min(375,pos)], [demo_data[0][pos]])), (demo_data[1][:min(375,pos)])]
         print(len(hist[0]))
         w, t = calculate_sim(hist, 0.97)
+        t = demo_data[1][pos] #use exisiting data because of bug in calc_sim
         self.bar_frame.set_data(w,pos)
+        self.set_transition(t)
 
 
     def set_position(self, event):
+        self.button1.config(background=self.button_color)
+        self.button2.config(background=self.button_color)
+        self.button3.config(background=self.button_color)
         pos = int(self.pos_input.get())
         self.pos = pos
         self.bar_frame.set_data([], pos)
         slip = transition_data[pos]
         self.set_rain_bg(slip)
-        print(slip)
         self.set_slip(slip)
+        self.set_empty(0)
 
     def set_slip(self, slip):
         dom = "6x6MDP"
@@ -365,7 +418,12 @@ class DemoGUI():
         pol = POMDPPolicy("../output/" + dom + ".alpha")
         self.set_policy(pol,1)
 
-
+    def set_transition(self, t):
+        dom = "6x6MDP_est"
+        write_t(dom + ".POMDP", t)
+        solve(dom + '.POMDP')
+        pol = POMDPPolicy("../output/" + dom + ".alpha")
+        self.set_policy(pol,0)
 
 
 

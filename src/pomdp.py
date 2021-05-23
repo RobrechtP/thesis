@@ -5,10 +5,6 @@ the belief.
 
 author: mbforbes
 https://github.com/mbforbes/py-pomdp
-
-TODO(mbforbes): Check model after construction to provide sanity check for
-                specified pomdp environment (e.g. observation and transition
-                probabilities sum to 1.0)
 """
 
 # builtins
@@ -437,7 +433,7 @@ class POMDPEnvironment:
         """
         b_new_nonnormalized = []
         for s_prime in range(len(self.states)):
-            p_o_prime = self.Z[(None, s_prime, observation_num)] #TODO: HIER NONE GEZET WANT ACTION_NUM ALTIJD NONE IN self.Z
+            p_o_prime = self.Z[(None, s_prime, observation_num)] #HIER NONE GEZET WANT ACTION_NUM ALTIJD NONE IN self.Z
             summation = 0.0
             for s in range(len(self.states)):
                 p_s_prime = self.T[(action_num, s, s_prime)]
@@ -448,13 +444,13 @@ class POMDPEnvironment:
         # normalize
         b_new = []
         total = sum(b_new_nonnormalized)
-        if total == 0: #todo: in dit geval is iets "ongmogelijks" gebeurd. fix: belief gelijkstellen aan observation func
+        if total == 0: #in dit geval is iets "ongmogelijks" gebeurd. fix: belief gelijkstellen aan observation func
             for state in range(len(b_new_nonnormalized)):
                 b_new_nonnormalized[state] = self.Z[(None, state, observation_num)]
             total = sum(b_new_nonnormalized)
 
         for b_s in b_new_nonnormalized:
-            b_new.append(b_s/total) #er stonden [] rond b_s/total, weet niet waarom
+            b_new.append(b_s/total) #er stonden [] rond b_s/total, weet niet waarom (weggehaald)
         return np.array(b_new)
 
     def print_summary(self):
@@ -470,12 +466,14 @@ class POMDPEnvironment:
         print ("")
         print ("R:", self.R)
 
-    def set_transition(self, t): #added to set the transition function as given by t:nparray(a,s,s'), assumed to have correct dims
+    #set the transition function as given by t:nparray(a,s,s'), assumed to have correct dims
+    def set_transition(self, t):
         for action in range(len(t)):
             for start_state in range(len(t[action])):
                 for next_state in range(len(t[action][start_state])):
                     self.T[(action, start_state, next_state)] = t[action][start_state][next_state]
 
+    #get the transition function as nparray(a,s,s')
     def get_transition(self):
         nactions = len(self.actions)
         nstates = len(self.states)
@@ -508,7 +506,6 @@ class POMDPPolicy:
             x.strip() for x in f.readlines()
             if (not (x.startswith("#") or x.isspace()))
         ]
-        #print("pol file contents:" + str(contents))
         self.action_nums = []
         val_arrs = []
 
@@ -519,7 +516,6 @@ class POMDPPolicy:
                 vals.append(float(val))
             val_arrs.append(vals)
         self.pMatrix = np.array(val_arrs)
-
 
 
 

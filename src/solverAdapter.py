@@ -4,11 +4,10 @@ from src.pomdp import *
 import xlsxwriter
 
 
-
+#call third party solver to solve given POMDP file
 def solve(path = '4x4MDP.POMDP'):
     subprocess.run(['java', '-cp', '../lib/SolvePOMDP.jar;../lib/*', 'program.SolvePOMDP', path ], shell=True)
 
-#-cp SolvePOMDP.jar;../lib/*'
 
 #get the transition matrices Tn, Ts, Te, Tw of the 4x4 grid given pr_success
 def get_transitions(pr_succ):
@@ -166,7 +165,7 @@ def get_transitions(pr_succ):
     return (Tn, Ts, Te, Tw)
 
 
-
+#get the transition matrices Tn, Ts, Te, Tw of the 6x6 grid given pr_success
 def get_transitions_extension(pr_succ, pr_succ_dry):
     #chance corresponding to landing on a specific other tile because of slipping
     succ = pr_succ
@@ -450,10 +449,9 @@ def write_transitions(path, pr_succ, extension = False, pr_dry=0.95):
     file.writelines(lines)
     file.close()
 
-
+#write any given transition t (matrix [a][s1][s2]) to correctly formatted pomdp file
+#only works for domains with 4 actions "n s e w"
 def write_t(path, t):
-    #write given transition t (matrix [a][s1][s2]) to path
-    #only works for domains with actions "n s e w"
 
     path = "../domains/" + path
 
@@ -479,25 +477,26 @@ def write_t(path, t):
     file.writelines(lines)
     file.close()
 
+#method for informal testing purposes
 def solvertest():
 
-    dom = "6x6MDP"
-    pr_succ = 0.8
+    dom = "4x4_test"
+    pr_succ = 0.75
     test_transitions(pr_succ)
-    write_transitions("../domains/" + dom + ".POMDP", pr_succ, extension=True)
+    write_transitions("../domains/" + dom + ".POMDP", pr_succ, extension=False)
 
     solve(dom + '.POMDP')
     pol = POMDPPolicy("../output/" + dom + ".alpha")
-    belief = np.zeros(27)
-    belief[14] = 1
+    belief = np.zeros(14)
+    belief[10] = 1
     print("BEST ACTION START:")
     print(pol.get_best_action(belief))
-    belief = np.zeros(27)
-    belief[15] = 1
-    print("BEST ACTION TILE 15:")
+    belief = np.zeros(14)
+    belief[12] = 1
+    print("BEST ACTION TILE 13:")
     print(pol.get_best_action(belief))
 
-
+#get data what action is best for which p(slip) value by enumarting over a range of possibilities
 def enumerate_best_action(dom = "6x6MDP", filename = "policies_6x6.xlsx", extension=True):
 
 

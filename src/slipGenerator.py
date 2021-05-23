@@ -3,13 +3,15 @@ from src.simulator import *
 from src.controller import *
 from src.pomdp import *
 
+
+#simple class used to transform the data into an easily plottable format (for demo purposes)
 class PlotController():
     def __init__(self):
         self.step = 0
         self.slip = 0
         self.data = []
 
-    def set_sim_slip(self, slip):
+    def set_sim_p_succ(self, slip):
         self.slip = slip
 
 
@@ -19,6 +21,9 @@ class PlotController():
         self.step += 1
 
 
+
+#transition function generating class based on random rain showers (see masters thesis for generation details)
+#in the code in this file "slip" actually refers to succes prob
 class RainGenerator:
 
     def __init__(self, dry_slip = 0.95, wet_slip = 0.65):
@@ -41,16 +46,16 @@ class RainGenerator:
                 self.start_next_show = self.data.pop(0)
                 self.end_next_show = self.data.pop(0)
                 self.end_next_dry = self.data.pop(0)
-            cont.set_sim_slip(self.wet_slip)
+            cont.set_sim_p_succ(self.wet_slip)
 
 
         #if currently drying decrease slip every 100 steps
         if i%100 == 0 and self.end_curr_show < i < self.end_curr_dry:
             slip = self.wet_slip + (self.dry_slip - self.wet_slip) * (i - self.end_curr_show)/(self.end_curr_dry - self.end_curr_show)
-            cont.set_sim_slip(slip)
+            cont.set_sim_p_succ(slip)
 
         if i == self.end_curr_dry:
-            cont.set_sim_slip(self.dry_slip)
+            cont.set_sim_p_succ(self.dry_slip)
 
     def generate_data(self, p_shower=1/7000, min_length_shower=1000,
                          max_length_shower=5000, min_length_drying = 3000, max_length_drying = 5000, length = 500000 ):
@@ -140,5 +145,7 @@ class RainGenerator:
 
 
     #todo: optioneel methode toeveogen die een voorbeeld plot
+
+
 
 
